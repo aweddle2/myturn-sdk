@@ -1,6 +1,7 @@
 from .browser import Browser
 from .myturn_users import MyTurnUsers
 from .myturn_my_account import MyTurnMyAccount
+from .myturn_authenticator import MyTurnAuthenticator
 
 
 class MyTurnClient():
@@ -10,6 +11,8 @@ class MyTurnClient():
     def __init__(self, myturnSubDomain: str, username: str, password: str):
         libraryUrl = 'https://'+myturnSubDomain+'.myturn.com/library/'
         browser = Browser()
-        self.users = MyTurnUsers(libraryUrl, browser, username, password)
-        self.myAccount = MyTurnMyAccount(
+        authenticator = MyTurnAuthenticator(
             libraryUrl, browser, username, password)
+
+        self.users = MyTurnUsers(libraryUrl, browser, authenticator)
+        self.myAccount = MyTurnMyAccount(libraryUrl, browser, authenticator)

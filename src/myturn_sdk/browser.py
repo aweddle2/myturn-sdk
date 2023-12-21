@@ -21,7 +21,7 @@ class Browser():
     def _browserOpen(self):
         # Options to make headless Chrome work in a Docker container and allow downloading of files for script
         chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument("--headless")
+        # chrome_options.add_argument("--headless=new")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("window-size=1920,1080")
         chrome_options.add_argument("--no-sandbox")
@@ -50,6 +50,9 @@ class Browser():
         self._webdriver.execute("send_command", params)
         return
 
+    def quit(self):
+        self._webdriver.quit()
+
     def getAndOpenFile(self, url: str, filename: str):
         # get the file
         self.get(url)
@@ -66,7 +69,7 @@ class Browser():
     def get(self, url: str):
         return self._webdriver.get(url)
 
-    def post(self, url: str, postParams):
+    def post(self, url: str, postParams={}):
         return self._webdriver.request('POST', url, data=postParams)
 
     def _find_element(self, by, search):
@@ -79,11 +82,18 @@ class Browser():
         except NoSuchElementException:
             return None
 
+    def _find_elements(self, by, search):
+        element = self._webdriver.find_elements(by, search)
+        return element
+
     def find_element_by_css_selector(self, search):
         return self._find_element(By.CSS_SELECTOR, search)
 
     def find_element_by_xpath(self, search):
         return self._find_element(By.XPATH, search)
+
+    def find_elements_by_xpath(self, search):
+        return self._find_elements(By.XPATH, search)
 
     def find_element_by_name(self, search):
         return self._find_element(By.NAME, search)
@@ -97,8 +107,21 @@ class Browser():
                 (by, search))
         )
 
+    def _wait_for_element_removed(self, by, search):
+        WebDriverWait(self._webdriver, 5
+                      ).until(EC.presence_of_element_located(
+                          (by, search)))
+
+        WebDriverWait(self._webdriver, 30).until_not(
+            EC.presence_of_element_located(
+                (by, search))
+        )
+
     def wait_for_element_visible_by_css_selector(self, search):
         self._wait_for_element_visible(By.CSS_SELECTOR, search)
+
+    def wait_for_element_removed_by_css_selector(self, search):
+        self._wait_for_element_removed(By.CSS_SELECTOR, search)
 
     def _wait_for_element_clickable(self, by, search):
         WebDriverWait(self._webdriver, 30).until(
@@ -116,17 +139,26 @@ class Browser():
         self._wait_for_element_clickable(By.CSS_SELECTOR, cssElement)
         self.find_element_by_css_selector(cssElement).click()
 
+    def clickByID(self, id):
+        self._wait_for_element_clickable(By.ID, id)
+        self._find_element(By.ID, id).click()
+
     def clickByXPath(self, xpath):
         self._wait_for_element_clickable(By.XPATH, xpath)
         self.find_element_by_xpath(xpath).click()
 
-    def setTextByCssElement(self, cssElement, text):
-        element = self.find_element_by_css_selector(cssElement)
+    def setTextByCssSelector(self, cssSelector, text):
+        element = self.find_element_by_css_selector(cssSelector)
         element.clear()
         element.send_keys(text)
 
     def setTextByName(self, name, text):
         element = self.find_element_by_name(name)
+        element.clear()
+        element.send_keys(text)
+
+    def setTextByXPath(self, xpath, text):
+        element = self.find_element_by_xpath(xpath)
         element.clear()
         element.send_keys(text)
 
@@ -137,3 +169,22 @@ class Browser():
 
     def appendText(self, cssElement, text):
         self.find_element_by_css_selector(cssElement).send_keys(text)
+
+    def getTableContents(self, id: str):
+        # This probably needs to be a bit more resilient to check if there is a tbody tag any other permeatations on html tables
+        rows = self.find_elements_by_xpath(
+            "//table[@id='"+id+"']//tbody/tr")
+
+        returnValue = []
+
+        for row in rows:
+            rowArray = []
+            cells = row.find_elements(By.TAG_NAME, 'td')
+            # If only one cell then no records have been found, so just early return
+            if (len(cells) == 1):
+                return returnValue
+            for cell in cells:
+                rowArray.append(cell.text)
+            returnValue.append(rowArray)
+
+        return returnValue

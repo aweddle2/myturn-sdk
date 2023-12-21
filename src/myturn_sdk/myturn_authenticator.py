@@ -1,10 +1,9 @@
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from .browser import Browser
-from .myturn_anonymous_base import _MyTurnAnonymousBase
 from .models.login_result import LoginResult
 
 
-class _MyTurnAuthenticatedBase(_MyTurnAnonymousBase):
+class MyTurnAuthenticator():
     _authUrl: str
     _logoutUrl: str
     # A URL accessible by all users to check if the browser is logged in
@@ -13,20 +12,15 @@ class _MyTurnAuthenticatedBase(_MyTurnAnonymousBase):
     _password: str
     _loginExpiry: datetime = None
 
+    browser: Browser
+
     def __init__(self, libraryUrl: str, browser: Browser, username: str, password: str):
         self._authUrl = libraryUrl + 'login/auth'
         self._logoutUrl = libraryUrl + 'logout/index'
         self._loggedInUrl = libraryUrl + 'myAccount/index'
         self._username = username
         self._password = password
-        _MyTurnAnonymousBase.__init__(self, libraryUrl, browser)
-
-    def checklogin(func):
-        def wrapper(self, *args):
-            self.authenticate()
-            val = func(self, *args)
-            return val
-        return wrapper
+        self.browser = browser
 
     def authenticate(self):
         result = self._isUserLoggedIn()
@@ -35,13 +29,7 @@ class _MyTurnAuthenticatedBase(_MyTurnAnonymousBase):
         if (result.success):
             return result
 
-        # If we get here there was no cookie,
-        # so either someone logged in a different way without the "remember me" option
-        # or the cookie has expired
-        # Lets call the logout endpoint just to be safe
-        self.logout()
-
-        # Then login again
+        # If we get here there was no login
         self.browser.get(self._authUrl)
         id_box = self.browser.find_element_by_name('j_username')
         id_box.send_keys(self._username)
@@ -62,6 +50,7 @@ class _MyTurnAuthenticatedBase(_MyTurnAnonymousBase):
         return result
 
     def logout(self):
+        self._loginExpiry = datetime.now()
         self.browser.get(self._logoutUrl)
 
     def _isUserLoggedIn(self):

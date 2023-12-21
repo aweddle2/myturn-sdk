@@ -1,6 +1,8 @@
 from typing import List
-
-from .myturn_authenticated_base import _MyTurnAuthenticatedBase
+from src.myturn_sdk.models.user_search_request import UserSearchRequest
+from src.myturn_sdk.models.user_search_response import UserSearchResponse
+from .myturn_service_base import _MyTurnServiceBase
+from .myturn_authenticator import MyTurnAuthenticator
 from .browser import Browser
 from .models.user import User
 import csv
@@ -8,7 +10,7 @@ import time
 import datetime
 
 
-class MyTurnUsers(_MyTurnAuthenticatedBase):
+class MyTurnUsers(_MyTurnServiceBase):
     _userExportToCsvUrl = ''
     _userSearchUrl = ''
     _editUserUrl = ''
@@ -17,17 +19,46 @@ class MyTurnUsers(_MyTurnAuthenticatedBase):
     # Path to store the cookies file for automated login
     # _mcookies_file = _scriptdir + 'creds' + os.sep + 'mcookies.pkl'
 
-    # Default Constructor.  Logs into MyTurn
-    def __init__(self, libraryUrl: str, browser: Browser, username: str, password: str):
+    # Default Constructor
+    def __init__(self, libraryUrl: str, browser: Browser, authenticator: MyTurnAuthenticator):
         self._userExportToCsvUrl = libraryUrl + 'orgMembership/exportUsers'
-        self._userSearchUrl = libraryUrl + 'orgMembership/searchUsers?load=true&keyword='
+        self._userSearchUrl = libraryUrl + 'orgMembership/searchUsers'
         self._editUserUrl = libraryUrl + 'orgMembership/editUser?userId='
         self._deleteUserUrl = libraryUrl + 'orgMembership/deleteUser?user.id='
         self._userDetailsUrl = libraryUrl + 'orgMembership/userDetails?userId='
-        _MyTurnAuthenticatedBase.__init__(
-            self, libraryUrl, browser, username, password)
+        _MyTurnServiceBase.__init__(
+            self, libraryUrl, browser, authenticator)
 
-    @_MyTurnAuthenticatedBase.checklogin
+    @_MyTurnServiceBase.checklogin
+    def searchUsers(self, request: UserSearchRequest):
+        try:
+            self._searchUsers(request)
+
+            returnValue = UserSearchResponse()
+
+            rows = self.browser.getTableContents('user-list')
+
+            for row in rows:
+                u = User()
+                u.username = row[0]
+                u.membershipId = row[1]
+                u.firstName = row[2]
+                u.lastName = row[3]
+                u.email = row[4]
+                # skip organisation
+                u.currentMembershipType = row[6]
+                # skip expiration
+                returnValue.users.append(u)
+
+            return returnValue
+        except Exception as inst:
+            if __debug__:
+                self.browser._webdriver.execute_script(
+                    'window.scrollBy(0,350)', '')
+                self.browser._webdriver.save_screenshot('test.png')
+            raise inst
+
+    @_MyTurnServiceBase.checklogin
     def getUser(self, userId):
         try:
             userDetailsUrl = self._userDetailsUrl + str(userId)
@@ -63,15 +94,44 @@ class MyTurnUsers(_MyTurnAuthenticatedBase):
         except:
             return None
 
-    @_MyTurnAuthenticatedBase.checklogin
+    @_MyTurnServiceBase.checklogin
     def getUserIdForMembershipId(self, membershipId):
-        searchUserUrl = self._userSearchUrl + str(membershipId)
-        self.browser.get(searchUserUrl)
-        url = self.browser.find_element_by_link_text(
-            'Edit').get_attribute('href')
-        return int(url[-6:])
+        try:
+            request = UserSearchRequest()
+            request.search = membershipId
+            self._searchUsers(request)
 
-    @_MyTurnAuthenticatedBase.checklogin
+            url = self.browser.find_element_by_link_text(
+                'Edit').get_attribute('href')
+            return int(url[-6:])
+        except Exception as inst:
+            if __debug__:
+                self.browser._webdriver.save_screenshot('test.png')
+            raise inst
+
+    def _searchUsers(self, request: UserSearchRequest):
+        # TODO Work out why a delay is needed here!
+        time.sleep(1)
+        self.browser.get(self._userSearchUrl)
+        # Need some time to let some javascript render, but can't find a good way of detecting when it has finished.
+        time.sleep(1)
+        # Can't search by name here as there are 2 elements with the name 'keyword'
+        self.browser.setTextByXPath(
+            "//form[@id='userSearchParams']//input[@name='keyword']", request.search)
+
+        if (len(request.email) > 0):
+            # Click 'Advanced' Tab
+            self.browser.clickByID('tab_1_1')
+            # sleep until the according expands.  Know this is bad practise, but it is a fixed time in jQuery and the html changes after it has expanded are hard to test for.
+            time.sleep(2)
+            self.browser.setTextByName('emailAddress', request.email)
+
+        self.browser.clickByCssSelector('.btn-primary')
+        # Wait for loading spinner to dissapear
+        self.browser.wait_for_element_removed_by_css_selector(
+            '.blockUI')
+
+    @_MyTurnServiceBase.checklogin
     def getRequestsToJoin(self):
         users: List[User] = list()
 
@@ -87,10 +147,12 @@ class MyTurnUsers(_MyTurnAuthenticatedBase):
                       ]
 
         # this will download the file to the downloads directory
-        result = self.browser.post(
-            self._userExportToCsvUrl, postParams).content.decode('UTF-8').splitlines()
+        response = self.browser.post(self._userExportToCsvUrl, postParams)
+        result = response.content.decode('UTF-8').splitlines()
 
         rows = csv.reader(result)
+        # skip header
+        next(rows)
         for row in rows:
             user = User()
             # The order of the CSV is dependant on the order of the order of the fields in the URL above.
@@ -105,7 +167,7 @@ class MyTurnUsers(_MyTurnAuthenticatedBase):
             users.append(user)
         return users
 
-    @_MyTurnAuthenticatedBase.checklogin
+    @_MyTurnServiceBase.checklogin
     def appendNote(self, userId, note):
         # Get the Edit User Page
         editUserUrl = self._editUserUrl+str(userId)
@@ -122,7 +184,7 @@ class MyTurnUsers(_MyTurnAuthenticatedBase):
         # This is just going to timeout after the alloted time anyway, so it's no more efficient than a sleep
         time.sleep(2)
 
-    @_MyTurnAuthenticatedBase.checklogin
+    @_MyTurnServiceBase.checklogin
     def setNote(self, userId, note):
         # Get the Edit User Page
         editUserUrl = self._editUserUrl+str(userId)
@@ -130,7 +192,7 @@ class MyTurnUsers(_MyTurnAuthenticatedBase):
         # Click the 'Update Note' button
         self.browser.clickByCssSelector('#user-note-btn')
         # Set the note to the modal window
-        self.browser.setTextByCssElement('#user-note-modal-content', note)
+        self.browser.setTextByCssSelector('#user-note-modal-content', note)
         # Save the modal
         self.browser.clickByXPath(
             "//div[@id='user-note-modal']//button[@class='btn btn-primary submit-btn']")
@@ -139,7 +201,7 @@ class MyTurnUsers(_MyTurnAuthenticatedBase):
         # This is just going to timeout after the alloted time anyway, so it's no more efficient than a sleep
         time.sleep(2)
 
-    @_MyTurnAuthenticatedBase.checklogin
+    @_MyTurnServiceBase.checklogin
     def getNote(self, userId):
         # Get the Edit User Page
         editUserUrl = self._editUserUrl+str(userId)
@@ -147,8 +209,11 @@ class MyTurnUsers(_MyTurnAuthenticatedBase):
         # Get the Note
         return self.browser.find_element_by_css_selector('#user-note').get_attribute("innerText")
 
-    @_MyTurnAuthenticatedBase.checklogin
+    @_MyTurnServiceBase.checklogin
     def deleteUser(self, userId: int):
+        if userId is None:
+            raise ValueError("userId must be specified")
+
         # Get the Delete User Page
         deleteUserUrl = self._deleteUserUrl+str(userId)
         self.browser.get(deleteUserUrl)

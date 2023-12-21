@@ -1,20 +1,21 @@
 from .models.user import User
 from .browser import Browser
-from .myturn_authenticated_base import _MyTurnAuthenticatedBase
+from .myturn_authenticator import MyTurnAuthenticator
+from .myturn_service_base import _MyTurnServiceBase
 
 
-class MyTurnMyAccount(_MyTurnAuthenticatedBase):
+class MyTurnMyAccount(_MyTurnServiceBase):
     paymentMethodUrl = ''
     selectMembershipTypeUrl = ''
     _publicCreateUserUrl = ''
 
-    def __init__(self, libraryUrl: str, browser: Browser, username: str, password: str):
+    def __init__(self, libraryUrl: str, browser: Browser, authenticator: MyTurnAuthenticator):
         self.paymentMethodUrl = libraryUrl + 'myAccount/paymentMethod'
         self.selectMembershipTypeUrl = libraryUrl + 'myAccount/selectMembershipType'
         self.editMembershipUrl = libraryUrl + 'myAccount/editMembership'
         self._publicCreateUserUrl = libraryUrl + 'createUser/create'
-        _MyTurnAuthenticatedBase.__init__(
-            self, libraryUrl, browser, username, password)
+        _MyTurnServiceBase.__init__(
+            self, libraryUrl, browser, authenticator)
 
     def createUser(self, user: User, password: str):
         # Get the create user page
@@ -52,15 +53,6 @@ class MyTurnMyAccount(_MyTurnAuthenticatedBase):
 
         return
 
-    @_MyTurnAuthenticatedBase.checklogin
-    def getMembershipId(self):
-        # Get the Edit Membership page
-        self.browser.get(self.editMembershipUrl)
-        # Get the Membership ID
-        membershipId = int(self.browser.find_element_by_xpath(
-            "//label[.='Membership ID']/following-sibling::div/div").get_attribute('innerText'))
-        return membershipId
-
     def _myTurnDateFormatTostrftimeFormat(self, myTurnDateFormat: str):
         if (myTurnDateFormat is None):
             return None
@@ -69,3 +61,6 @@ class MyTurnMyAccount(_MyTurnAuthenticatedBase):
         # Lastly these replaces will give 2 % signs, so replace them with a single one
         return myTurnDateFormat.replace('dd', '%d').replace('d', '%d').replace(
             'mm', '%m').replace('m', '%m').replace('yyyy', '%Y').replace('%%', '%')
+
+    def logout(self):
+        self.authenticator.logout()
