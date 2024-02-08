@@ -8,9 +8,9 @@ class MyTurnClient():
     users: MyTurnUsers
     myAccount: MyTurnMyAccount
 
-    def __init__(self, myturnSubDomain: str, username: str, password: str):
+    def __init__(self, myturnSubDomain: str, username: str, password: str, headless: bool = True):
         libraryUrl = 'https://'+myturnSubDomain+'.myturn.com/library/'
-        browser = Browser()
+        browser = Browser(headless)
         authenticator = MyTurnAuthenticator(
             libraryUrl, browser, username, password)
 

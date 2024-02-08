@@ -15,13 +15,14 @@ class Browser():
     _scriptdir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep
     _webdriver: webdriver
 
-    def __init__(self):
-        self._browserOpen()
+    def __init__(self, headless: bool = True):
+        self._browserOpen(headless)
 
-    def _browserOpen(self):
+    def _browserOpen(self, headless):
         # Options to make headless Chrome work in a Docker container and allow downloading of files for script
         chrome_options = webdriver.ChromeOptions()
-        # chrome_options.add_argument("--headless=new")
+        if (headless):
+            chrome_options.add_argument("--headless=new")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("window-size=1920,1080")
         chrome_options.add_argument("--no-sandbox")
@@ -39,6 +40,7 @@ class Browser():
         self._webdriver = Chrome(options=chrome_options)
         # function to handle setting up headless download
         self.__enable_download_headless()
+        self._webdriver.timeouts.page_load = 10
         return
 
     # all: function to enable autodownloading to script directory
@@ -107,6 +109,12 @@ class Browser():
                 (by, search))
         )
 
+    def _wait_for_element_invisible(self, by, search):
+        WebDriverWait(self._webdriver, 30).until(
+            EC.invisibility_of_element_located(
+                (by, search))
+        )
+
     def _wait_for_element_removed(self, by, search):
         WebDriverWait(self._webdriver, 5
                       ).until(EC.presence_of_element_located(
@@ -116,6 +124,9 @@ class Browser():
             EC.presence_of_element_located(
                 (by, search))
         )
+
+    def wait_for_element_invisible_by_css_selector(self, search):
+        self._wait_for_element_invisible(By.CSS_SELECTOR, search)
 
     def wait_for_element_visible_by_css_selector(self, search):
         self._wait_for_element_visible(By.CSS_SELECTOR, search)
@@ -161,6 +172,12 @@ class Browser():
         element = self.find_element_by_xpath(xpath)
         element.clear()
         element.send_keys(text)
+
+    def getTextByXPath(self, xpath):
+        element = self.find_element_by_xpath(xpath)
+        if (element is None):
+            return ''
+        return element.get_attribute('innerText')
 
     def setSelectByVisibleText(self, name, text):
         element = self.find_element_by_name(name)

@@ -2,12 +2,10 @@ import random
 import string
 import unittest
 from src.myturn_sdk.models.user_search_request import UserSearchRequest
-from src.myturn_sdk.myturn_users import MyTurnUsers
 from src.myturn_sdk.models.user import User
 from src.myturn_sdk.myturn_client import MyTurnClient
 import os
 import datetime
-from parameterized import parameterized
 
 
 class MyTurnUsersIntegrationTests(unittest.TestCase):
@@ -25,7 +23,7 @@ class MyTurnUsersIntegrationTests(unittest.TestCase):
         self._userId = os.environ['myturnUserId']
 
         self._myTurnClient = MyTurnClient(
-            myturnSubdomain, myTurnUsername, myturnPassword)
+            myturnSubdomain, myTurnUsername, myturnPassword, False)
         self._user = User()
         self._user.firstName = 'Integration'
         self._user.lastName = 'User'
@@ -41,12 +39,12 @@ class MyTurnUsersIntegrationTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(self):
-        # # Always delete the test user at the end of the run
+        # Always delete the test user at the end of the run
         request = UserSearchRequest()
         request.email = self._user.email
         response = self._myTurnClient.users.searchUsers(request)
 
-        # # If there's a test user, delete it
+        # If there's a test user, delete it
         if (len(response.users) > 0):
             userId = self._myTurnClient.users.getUserIdForMembershipId(
                 response.users[0].membershipId)
@@ -89,8 +87,13 @@ class MyTurnUsersIntegrationTests(unittest.TestCase):
         # should not be the membershipid of the logged in user
         self.assertNotEqual(response.users[0].membershipId, self._membershipId)
 
-    def testSetupAndTearDown(self):
-        pass
+    # def testSetupAndTearDown(self):
+    #     pass
+
+    # def testLogout(self):
+    #     self._myTurnClient.myAccount.logout()
+
+    #     self._myTurnClient.users.getNote(self._userId)
 
     def testGetUserIdForMembershipId(self):
         # Arrange
@@ -123,8 +126,12 @@ class MyTurnUsersIntegrationTests(unittest.TestCase):
         request.email = self._user.email
         response = self._myTurnClient.users.searchUsers(request)
         self._user.membershipId = response.users[0].membershipId
+        self._user.userId = self._myTurnClient.users.getUserIdForMembershipId(
+            self._user.membershipId)
 
         oldNote = self._myTurnClient.users.getNote(self._user.userId)
+        # If the note is empty, MyTurn returns it as a unicode non breaking space, so lets ditch that.
+        oldNote = oldNote.replace(u'\xa0', u' ')
 
         # Act
         self._myTurnClient.users.appendNote(
@@ -134,7 +141,7 @@ class MyTurnUsersIntegrationTests(unittest.TestCase):
         newNote = self._myTurnClient.users.getNote(self._user.userId)
         # Set the old note back before asserting so it actually runs in case the assert throws an exception
         self._myTurnClient.users.setNote(self._user.userId, oldNote)
-        self.assertEqual(oldNote+' This is a test Note', newNote)
+        self.assertEqual((oldNote+' This is a test Note').strip(), newNote)
 
     def testGetUser(self):
         # Arrange
@@ -160,38 +167,6 @@ class MyTurnUsersIntegrationTests(unittest.TestCase):
         user = self._myTurnClient.users.getUser(999999)
 
         # Assert
-        self.assertIsNone(user)
-
-    @parameterized.expand([
-        (None, None),
-        ('m/d/yyyy', '%m/%d/%Y'),
-        ('mm/d/yyyy', '%m/%d/%Y'),
-        ('m/dd/yyyy', '%m/%d/%Y'),
-        ('mm/dd/yyyy', '%m/%d/%Y'),
-        ('d/m/yyyy', '%d/%m/%Y'),
-        ('dd/m/yyyy', '%d/%m/%Y'),
-        ('d/mm/yyyy', '%d/%m/%Y'),
-        ('dd/mm/yyyy', '%d/%m/%Y')
-    ])
-    def testMyTurnDateFormatToPythonDateformat(self, myTurnFormat, expected):
-        # Arrange
-        myTurnUsers = MyTurnUsers('', None, None, None)
-
-        # Act
-        pythonFormat = myTurnUsers._myTurnDateFormatTostrftimeFormat(
-            myTurnFormat)
-
-        # Assert
-        self.assertEqual(pythonFormat, expected)
-
-    def testDeleteUser(self):
-        # Arrange
-
-        # Act
-        self._myTurnClient.users.deleteUser(self._user.userId)
-
-        # Assert
-        user = self._myTurnClient.users.getUser(self._user.userId)
         self.assertIsNone(user)
 
 

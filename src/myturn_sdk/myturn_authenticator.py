@@ -50,7 +50,7 @@ class MyTurnAuthenticator():
         return result
 
     def logout(self):
-        self._loginExpiry = datetime.now()
+        self._loginExpiry = None
         self.browser.get(self._logoutUrl)
 
     def _isUserLoggedIn(self):

@@ -2,6 +2,7 @@ from .models.user import User
 from .browser import Browser
 from .myturn_authenticator import MyTurnAuthenticator
 from .myturn_service_base import _MyTurnServiceBase
+import time
 
 
 class MyTurnMyAccount(_MyTurnServiceBase):
@@ -64,3 +65,4 @@ class MyTurnMyAccount(_MyTurnServiceBase):
 
     def logout(self):
         self.authenticator.logout()
+        time.sleep(3)

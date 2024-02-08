@@ -55,7 +55,8 @@ class MyTurnUsers(_MyTurnServiceBase):
             if __debug__:
                 self.browser._webdriver.execute_script(
                     'window.scrollBy(0,350)', '')
-                self.browser._webdriver.save_screenshot('test.png')
+                self.browser._webdriver.save_screenshot(
+                    'searchUsersException.png')
             raise inst
 
     @_MyTurnServiceBase.checklogin
@@ -66,30 +67,35 @@ class MyTurnUsers(_MyTurnServiceBase):
 
             u = User()
             u.userId = userId
-            u.name = self.browser.find_element_by_xpath(
-                "//label[.='Name']/following-sibling::div/div").get_attribute('innerText').replace(u'\xa0', u' ')
-            u.email = self.browser.find_element_by_xpath(
-                "//label[.='Email']/following-sibling::div/div/a").get_attribute('innerText')
-            u.username = self.browser.find_element_by_xpath(
-                "//label[.='Username']/following-sibling::div/div").get_attribute('innerText')
-            u.phone = self.browser.find_element_by_xpath(
-                "//label[.='Phone']/following-sibling::div/div").get_attribute('innerText')
-            u.membershipId = int(self.browser.find_element_by_xpath(
-                "//label[.='Membership ID']/following-sibling::div/div").get_attribute('innerText'))
+
+            fullName = self.browser.getTextByXPath(
+                "//h3[.='Personal Info']/parent::div/parent::div//label[.='Name']/following-sibling::div/div")
+            # the &nbsp; is always there between the first name and surname, so this should always split successfully into 2 parts.
+            nameParts = fullName.split(u'\xa0')
+            u.firstName = nameParts[0]
+            u.lastName = nameParts[1]
+            u.email = self.browser.getTextByXPath(
+                "//h3[.='Personal Info']/parent::div/parent::div//label[.='Email']/following-sibling::div/div/a")
+            u.phone = self.browser.getTextByXPath(
+                "//h3[.='Personal Info']/parent::div/parent::div//label[.='Phone']/following-sibling::div/div")
+            u.username = self.browser.getTextByXPath(
+                "//label[.='Username']/following-sibling::div/div")
+            u.membershipId = int(self.browser.getTextByXPath(
+                "//label[.='Membership ID']/following-sibling::div/div"))
             # Membership type contains a sub element for the membership state, so we need to remove that
-            membershipState = self.browser.find_element_by_xpath(
-                "//label[.='Membership Type']/following-sibling::div/div/span").get_attribute('innerText')
-            membershipType = self.browser.find_element_by_xpath(
-                "//label[.='Membership Type']/following-sibling::div/div").get_attribute('innerText')
+            membershipState = self.browser.getTextByXPath(
+                "//label[.='Membership Type']/following-sibling::div/div/span")
+            membershipType = self.browser.getTextByXPath(
+                "//label[.='Membership Type']/following-sibling::div/div")
             u.currentMembershipType = membershipType.replace(
                 membershipState, '').strip()
-            memberCreatedAsString = self.browser.find_element_by_xpath(
-                "//label[.='Member Created']/following-sibling::div/div").get_attribute('innerText')
+            memberCreatedAsString = self.browser.getTextByXPath(
+                "//label[.='Member Created']/following-sibling::div/div")
             # TODO : Date format probably need refactored out as I am assuming it is set by the country of the person logged in?
             u.memberCreated = datetime.datetime.strptime(
                 memberCreatedAsString, '%d/%m/%Y')
-            u.paymentMethod = self.browser.find_element_by_xpath(
-                "//label[.='Payment method']/following-sibling::div/div").get_attribute('innerText').replace(' Update', '').replace(' Add', '')
+            u.paymentMethod = self.browser.getTextByXPath(
+                "//label[.='Payment method']/following-sibling::div/div").replace(' Update', '').replace(' Add', '')
             return u
         except:
             return None
@@ -106,18 +112,20 @@ class MyTurnUsers(_MyTurnServiceBase):
             return int(url[-6:])
         except Exception as inst:
             if __debug__:
-                self.browser._webdriver.save_screenshot('test.png')
+                self.browser._webdriver.save_screenshot(
+                    'getUserIdForMembershipIdException.png')
             raise inst
 
     def _searchUsers(self, request: UserSearchRequest):
         # TODO Work out why a delay is needed here!
-        time.sleep(1)
+        time.sleep(2)
         self.browser.get(self._userSearchUrl)
         # Need some time to let some javascript render, but can't find a good way of detecting when it has finished.
         time.sleep(1)
         # Can't search by name here as there are 2 elements with the name 'keyword'
-        self.browser.setTextByXPath(
-            "//form[@id='userSearchParams']//input[@name='keyword']", request.search)
+        if (len(request.search) > 0):
+            self.browser.setTextByXPath(
+                "//form[@id='userSearchParams']//input[@name='keyword']", request.search)
 
         if (len(request.email) > 0):
             # Click 'Advanced' Tab
@@ -174,15 +182,16 @@ class MyTurnUsers(_MyTurnServiceBase):
         self.browser.get(editUserUrl)
         # Click the 'Update Note' button
         self.browser.clickByCssSelector('#user-note-btn')
+        # Wait for the modal to open
+        self.browser.wait_for_element_visible_by_css_selector(
+            '#user-note-modal-content')
         # Append the note to the modal window
         self.browser.appendText('#user-note-modal-content', note)
         # Save the modal
         self.browser.clickByXPath(
             "//div[@id='user-note-modal']//button[@class='btn btn-primary submit-btn']")
-        # Wait 2 seconds for the modal to save before returning
-        # There's no clever way to do this other than with a WebDriverWait and the visibility_of_element_located() method.
-        # This is just going to timeout after the alloted time anyway, so it's no more efficient than a sleep
-        time.sleep(2)
+        self.browser.wait_for_element_invisible_by_css_selector(
+            '#user-note-modal')
 
     @_MyTurnServiceBase.checklogin
     def setNote(self, userId, note):
@@ -191,15 +200,19 @@ class MyTurnUsers(_MyTurnServiceBase):
         self.browser.get(editUserUrl)
         # Click the 'Update Note' button
         self.browser.clickByCssSelector('#user-note-btn')
+
+        # Wait for the modal to open
+        self.browser.wait_for_element_visible_by_css_selector(
+            '#user-note-modal-content')
+
         # Set the note to the modal window
         self.browser.setTextByCssSelector('#user-note-modal-content', note)
         # Save the modal
         self.browser.clickByXPath(
             "//div[@id='user-note-modal']//button[@class='btn btn-primary submit-btn']")
-        # Wait 2 seconds for the modal to save before returning
-        # There's no clever way to do this other than with a WebDriverWait and the visibility_of_element_located() method.
-        # This is just going to timeout after the alloted time anyway, so it's no more efficient than a sleep
-        time.sleep(2)
+
+        self.browser.wait_for_element_invisible_by_css_selector(
+            '#user-note-modal')
 
     @_MyTurnServiceBase.checklogin
     def getNote(self, userId):
