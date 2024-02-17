@@ -1,4 +1,4 @@
-from src.myturn_sdk.models.user import User
+from user import User
 
 
 class UserSearchResponse():
