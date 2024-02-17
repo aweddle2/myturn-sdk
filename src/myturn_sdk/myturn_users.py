@@ -1,10 +1,10 @@
 from typing import List
-from src.myturn_sdk.models.user_search_request import UserSearchRequest
-from src.myturn_sdk.models.user_search_response import UserSearchResponse
+from .models.user_search_request import UserSearchRequest
+from .models.user_search_response import UserSearchResponse
+from .models.user import User
 from .myturn_service_base import _MyTurnServiceBase
 from .myturn_authenticator import MyTurnAuthenticator
 from .browser import Browser
-from .models.user import User
 import csv
 import time
 import datetime
