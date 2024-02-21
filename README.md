@@ -17,7 +17,7 @@ myTurnUsername = 'testuser'
 myturnPassword = 'Password!'
 
 myTurnClient = MyTurnClient(
-            myturnSubdomain, myTurnUsername, myturnPassword, False)
+            myturnSubdomain, myTurnUsername, myturnPassword)
 ```
 
 ### Search for a User
