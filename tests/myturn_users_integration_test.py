@@ -23,7 +23,7 @@ class MyTurnUsersIntegrationTests(unittest.TestCase):
         self._userId = os.environ['myturnUserId']
 
         self._myTurnClient = MyTurnClient(
-            myturnSubdomain, myTurnUsername, myturnPassword, False)
+            myturnSubdomain, myTurnUsername, myturnPassword)
         self._user = User()
         self._user.firstName = 'Integration'
         self._user.lastName = 'User'
@@ -86,14 +86,6 @@ class MyTurnUsersIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(response.users[0].membershipId)
         # should not be the membershipid of the logged in user
         self.assertNotEqual(response.users[0].membershipId, self._membershipId)
-
-    # def testSetupAndTearDown(self):
-    #     pass
-
-    # def testLogout(self):
-    #     self._myTurnClient.myAccount.logout()
-
-    #     self._myTurnClient.users.getNote(self._userId)
 
     def testGetUserIdForMembershipId(self):
         # Arrange

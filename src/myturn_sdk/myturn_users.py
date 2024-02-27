@@ -31,10 +31,11 @@ class MyTurnUsers(_MyTurnServiceBase):
 
     @_MyTurnServiceBase.checklogin
     def searchUsers(self, request: UserSearchRequest):
+        returnValue = UserSearchResponse()
+        returnValue.success = False
+
         try:
             self._searchUsers(request)
-
-            returnValue = UserSearchResponse()
 
             rows = self.browser.getTableContents('user-list')
 
@@ -50,14 +51,16 @@ class MyTurnUsers(_MyTurnServiceBase):
                 # skip expiration
                 returnValue.users.append(u)
 
-            return returnValue
+            returnValue.success = True
+
         except Exception as inst:
+            returnValue.message = inst
             if __debug__:
                 self.browser._webdriver.execute_script(
                     'window.scrollBy(0,350)', '')
                 self.browser._webdriver.save_screenshot(
                     'searchUsersException.png')
-            raise inst
+        return returnValue
 
     @_MyTurnServiceBase.checklogin
     def getUser(self, userId):

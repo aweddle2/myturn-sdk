@@ -190,7 +190,7 @@ class Browser():
     def getTableContents(self, id: str):
         # This probably needs to be a bit more resilient to check if there is a tbody tag any other permeatations on html tables
         rows = self.find_elements_by_xpath(
-            "//table[@id='"+id+"']//tbody/tr")
+            "//table[contains(@id,'"+id+"')]//tbody//tr")
 
         returnValue = []
 
