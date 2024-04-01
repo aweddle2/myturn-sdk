@@ -36,8 +36,8 @@ class PublicInfoTests(unittest.TestCase):
         self.assertEqual(result.saturday.openTime.hour, 10)
         self.assertEqual(result.saturday.closeTime.hour, 14)
         self.assertEqual(result.saturday.dayName, 'Saturday')
-        self.assertEqual(result.sunday.openTime.hour, 11)
-        self.assertEqual(result.sunday.closeTime.hour, 13)
+        self.assertEqual(result.sunday.openTime, None)
+        self.assertEqual(result.sunday.closeTime, None)
         self.assertEqual(result.sunday.dayName, 'Sunday')
 
     def test_ballarat_opening_hours(self):
