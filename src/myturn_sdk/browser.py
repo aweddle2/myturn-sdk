@@ -7,6 +7,7 @@ import os
 import time
 import sys
 from seleniumrequests import Chrome
+import glob
 
 # Fixed to Chrome just now, but there this could be refactored to support any Selenium Browser
 
@@ -63,6 +64,13 @@ class Browser():
             time.sleep(1)
         # return the open file
         return open(self._scriptdir+os.sep+filename, encoding="utf8")
+
+    def openLastDownloadedFile(self):
+        # get last filename
+        list_of_files = glob.glob(self._scriptdir+'*')
+        latest_file = max(list_of_files, key=os.path.getctime)
+        # return the open file
+        return open(latest_file, encoding="utf8")
 
     def deleteDownload(self, filename: str):
         if os.path.exists(self._scriptdir+os.sep+filename):
